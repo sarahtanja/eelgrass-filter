@@ -16,9 +16,13 @@ BiocManager::install(version = "3.14")
 source("https://raw.githubusercontent.com/joey711/phyloseq/master/inst/scripts/installer.R",
        local = TRUE)
 install_phyloseq(branch = "devel")
-install.packages("devtools")
 install_phyloseq(branch = "github")
 install_github("phyloseq/joey711")
+
+library(devtools)
+devtools::install_github("benjjneb/dada2", ref="v1.16")
+# load dada2 package 
+library(dada2); packageVersion("dada2")
 
 
 # Assign taxonomy
@@ -29,7 +33,8 @@ install_github("phyloseq/joey711")
 # takes as input a set of sequences to be classified and a 
 # training set of reference sequences with known taxonomy, 
 # and outputs taxonomic assignments with at least minBoot bootstrap confidence.
-taxa <- assignTaxonomy(seqtab.nochim, "~/tax/silva_nr_v132_train_set.fa.gz", 
+taxa <- assignTaxonomy(seqtab.nochim, 
+                       "GTDB_bac120_arc122_ssu_r202_fullTaxo.fa.gz", 
                        multithread=TRUE)
 #Extensions: The dada2 package also implements a method to make species level 
 # assignments based on exact matching between ASVs and sequenced reference 
