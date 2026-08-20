@@ -1,0 +1,455 @@
+---
+title: "NCBI SRA submission"
+author: "Sarah Tanja"
+date: 08/19/2026
+date-modified: today
+format:
+  gfm: 
+    toc: true
+    number-sections: true
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE, # Display code chunks
+  eval = TRUE, # Evaluate code chunks
+  warning = FALSE, # Hide warnings
+  message = FALSE, # Hide messages
+  comment = "" # Prevents appending '##' to beginning of lines in code output
+)        
+```
+
+```{r library}
+library(tidyverse)
+```
+
+# Background
+
+CK collected surface water samples via kayak from three sites across
+Puget Sound, Golden Gardens, Smith's Cove, and Alki Beach. At each site,
+surface water samples were collected over both a 100m transect of
+eelgrass (Zostera marina), and a 100m transect of non-eelgrass habitat.
+The aim of this analyses is to compare bacterial community of the
+seawater over eelgrass with non-eelgrass samples.
+
+# NCBI Submission
+
+### Sequence Read Archive submission SUB16423997
+
+#### Submission title: 
+
+> Seasonal changes in pathogenic bacteria around eelgrass (Zostera
+> marina) meadows in Puget Sound, Aug 20 \`26
+
+#### Sample Type: 
+
+> MIMARKS Survey related, water - Use for any type of marker gene
+> sequences, eg, 16S, obtained directly fromt he environment, without
+> culturing or identification of the organisms.
+
+### BioSample Attributes for package MIMARKS: survey, water, version 6.0
+
+Required attributes (aka metadata columns)
+
+#### sample_name
+
+#### organism
+
+- seawater metagenome
+
+(see [Organism
+information](https://www.ncbi.nlm.nih.gov/biosample/docs/organism/#:~:text=2%20ABC%2D2021-,Metagenomes%20(Microbiomes),-We%20consider%20any)
+for why we chose this)
+
+#### collection_date
+
+> The date on which the sample was collected; date/time ranges are
+> supported by providing two dates from among the supported value
+> formats, delimited by a forward-slash character; collection times are
+> supported by adding "T", then the hour and minute after the date, and
+> must be in Coordinated Universal Time (UTC), otherwise known as "Zulu
+> Time" (Z); supported formats include "DD-Mmm-YYYY", "Mmm-YYYY", "YYYY"
+> or ISO 8601 standard "YYYY-mm-dd", "YYYY-mm", "YYYY-mm-ddThh:mm:ss";
+> e.g., 30-Oct-1990, Oct-1990, 1990, 1990-10-30, 1990-10,
+> 21-Oct-1952/15-Feb-1953, 2015-10-11T17:53:03Z; valid non-ISO dates
+> will be automatically transformed to ISO format
+
+#### env_broad_scale
+
+- estuarine biome
+
+> Add terms that identify the major environment type(s) where your
+> sample was collected. Recommend subclasses of biome \[ENVO:00000428\].
+> Multiple terms can be separated by one or more pipes e.g.:  mangrove
+> biome \[ENVO:01000181\]\|estuarine biome \[ENVO:01000020\]
+
+#### env_local_scale
+
+- shoreline\|eelgrass meadow
+
+- shoreline\|bare substrate
+
+> Add terms that identify environmental entities having causal
+> influences upon the entity at time of sampling, multiple terms can be
+> separated by pipes, e.g.:  shoreline \[ENVO:00000486\]\|intertidal
+> zone \[ENVO:00000316\]
+
+#### env_medium
+
+- estuarine water
+
+> Add terms that identify the material displaced by the entity at time
+> of sampling. Recommend subclasses of environmental material
+> \[ENVO:00010483\]. Multiple terms can be separated by pipes e.g.:
+> estuarine water \[ENVO:01000301\]\|estuarine mud \[ENVO:00002160\]
+
+#### geo_loc_name
+
+- USA: Puget Sound, Golden Gardens
+
+- USA: Puget Sound, Alki Beach
+
+- USA: Puget Sound, Smith's Cove
+
+> Geographical origin of the sample; use the appropriate name from this
+> list
+> <https://www.insdc.org/submitting-standards/geo_loc_name-qualifier-vocabulary/>.
+> Use a colon to separate the country or ocean from more detailed
+> information about the location, eg "Canada: Vancouver" or "Germany:
+> halfway down Zugspitze, Alps"
+
+#### lat_lon
+
+- The geographical coordinates of the location where the sample was
+  collected. Specify as degrees latitude and longitude in format
+  "d\[d.dddd\] N\|S d\[dd.dddd\] W\|E", eg, 38.98 N 77.11 W
+
+#### depth
+
+- Depth is defined as the vertical distance below surface, e.g. for
+  sediment or soil samples depth is measured from sediment or soil
+  surface, respectivly. Depth can be reported as an interval for
+  subsurface samples.
+
+# Metadata
+
+Let's checkout the metadata
+
+- slice(-1) removes the first data row after the headers, which in the
+  `Metadata_cak.tsv` file was descriptions of the column data types.
+
+```{r metadata}
+metadata <- read_tsv("../metadata/Metadata_cak.tsv") |> 
+  slice(-1)
+
+# make dist from shore a double not a character
+metadata <- metadata |> 
+  mutate(dist_from_shore = as.double(dist_from_shore))
+
+# make date column
+metadata <- metadata |> 
+  mutate(
+    date = stringr::str_extract(`sample-id`, "^\\d{1,2}-\\d{1,2}") |>
+      paste0("-2020") |>
+      as.Date(format = "%m-%d-%Y")
+  )
+# clean up month column
+metadata <- metadata |> 
+  rename(month_no = month)
+
+knitr::kable(metadata, format="pipe")
+```
+
+Our metadata file has 6 columns:
+
+- sample-id
+
+- barcode-sequence
+
+- seagrass
+
+- month
+
+- site
+
+- dist_from_shore
+
+::: callout-note
+Q: The sample-id indicates the winter samples were collected December
+2020... were the Summer samples collected earlier that same year in
+August 2020, or later in August 2021?
+
+A: Summer samples were collected in Aug 2020!
+:::
+
+We have 60 water samples across 3 sites (`golden_gardens`, `alki`,
+`smiths_cove`) that were collected either in Winter (12 / December) or
+in Summer (8 / August), over eelgrass habitat (`grass`) or over sediment
+habitat (`none`), at 1, 20, 40, 60, and 80 meters from shore along a
+100m transect.
+
+```{r metadatacount}
+metadata |> count(site, month, seagrass, dist_from_shore)
+```
+
+We don't have any repeat samples across all of our metadata columns, the
+distance from shore column could be collapsed and interpreted as our
+repeated sampling.
+
+```{r metadatacount2}
+metadata |> count(site, month, seagrass)
+```
+
+When we group all the samples from the same day and place (and collapse
+the dist-from_shore column ), we have a sample size of 5.
+
+```{r fieldinspect}
+fielddata <- read_csv("../metadata/FieldAssayCounts.csv")
+
+glimpse(fielddata)
+unique(fielddata$site)
+unique(fielddata$month)
+unique(fielddata$grass.nograss)
+unique(fielddata$Date)
+class(fielddata$Date)
+
+# make Date a as.date
+fielddata <- fielddata |> 
+  mutate(
+    ent_date = as.Date(Date, format = "%m/%d/%Y")
+  )
+class(fielddata$ent_date)
+unique(fielddata$ent_date)
+```
+
+```{r fielclean}
+
+# caution original fielddata spells it Novermber
+
+fieldclean <- fielddata |> 
+  mutate(
+    month = case_when(
+      month == "Novermber" ~ "November",
+      TRUE ~ month
+    ),
+    month_no = case_when(
+      month == "January" ~ 1,
+      month == "February" ~ 2,
+      month == "March" ~ 3,
+      month == "April" ~ 4,
+      month == "May" ~ 5, 
+      month == "June" ~ 6,
+      month == "July" ~ 7,
+      month == "August" ~ 8,
+      month == "September" ~ 9, 
+      month == "October" ~ 10,
+      month == "November" ~ 11,
+      month == "December" ~ 12, 
+      TRUE ~ NA_real_
+    ), 
+    site = case_when(
+      site == "Alki" ~ "alki", 
+      site == "smithcove" ~ "smiths_cove",
+      site == "GG" ~ "golden_gardens",
+      site == "Disc" ~ "disc"
+    ), 
+    seagrass = case_when(
+    grass.nograss == 1 ~ "grass",
+    grass.nograss == 0 ~ "none"
+  )) |> 
+  rename(
+      dist_from_shore = dist.from.shore
+    ) |> 
+  select(ent_date, month, month_no, site, transect, seagrass, dist_from_shore, temp, ph, sal, par, do, ent_count
+    )
+  
+```
+
+The field assay counts are data from the enterococcus water samples that
+were collected in the same location and time as the eDNA water samples.
+The enterococcus water samples were collected in triplicate, as were
+their metadata, so we have to average that metadata to get 1 row of
+information for each eDNA water sample.
+
+```{r}
+fieldtriplicates <- fieldclean |> 
+  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  summarize(
+    n = n()
+  ) |> 
+  filter(n != 3)
+
+fieldtriplicates
+```
+
+::: callout-note
+OK... 24 of our samples don't group into the triplicate sample
+structure... They're all in the dist_from_shore 1 sampling location...
+And it looks like there is a sample labelled grass that should have been
+none. It seems like transect D should always be a no seagrass or "none"
+coded row. Let's fix that...
+:::
+
+```{r}
+fieldcleangrass <- fieldclean |>
+  mutate(
+    seagrass = case_when(
+      transect == "D" ~ "none",
+      TRUE ~ seagrass
+    )
+  )
+
+# should return 0 rows
+fieldcleangrass |> 
+  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  summarize(
+    n = n()
+  ) |> 
+  filter(n != 3)
+```
+
+```{r}
+fieldsummary <- fieldcleangrass |> 
+  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  summarize(
+    avg_temp = mean(temp, na.rm = TRUE),
+    avg_ph   = mean(ph, na.rm = TRUE),
+    avg_sal  = mean(sal, na.rm = TRUE),
+    avg_par  = mean(par, na.rm = TRUE),
+    avg_do   = mean(do, na.rm = TRUE),
+    avg_ent  = mean(ent_count, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+
+::: callout-note
+The sample collection date from the enterococcus metadata for December
+golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
+:::
+
+```{r}
+metadatajoin <- metadata |> 
+  left_join(fieldsummary, by = join_by(site, seagrass, dist_from_shore, closest(x$date <= y$ent_date)))
+```
+
+::: callout-note
+We need to add the required NCBI attributes to our metadata file.
+:::
+
+```{r addNCBIattributes}
+metadata <- metadata |> 
+  mutate(
+    sample_name = sample-id, 
+    organism = water metagenome,
+    collection_date = 
+    
+  )
+```
+
+# Inspect fastq.gz files
+
+```{r fastqlist, engine='bash'}
+ls ../fastq_files
+```
+
+```{r fastqcount, engine='bash'}
+ls -1 ../fastq_files/*fastq.gz* | wc -l
+```
+
+We have 118 fastq.gz files... There should be a R1 and an R2 for each
+sample.
+
+```{r div2}
+118/2
+```
+
+So we have fastq files for 59 out of the 60 samples...
+
+# Checksums
+
+Generate md5 for each fastq.gz and save it in the data directory
+
+```{r md5sum, engine='bash'}
+
+for file in ../fastq_files/*.fastq.gz; do
+    md5sum "$file" > "${file}.md5"
+done
+```
+
+We need to match our filenames with our metadata.
+
+Each filename follows the pattern `sample-id_S##_L001_R1/2.fastq.gz` and
+in metadata the sample-id coumn should match the sample-id prior to the
+\_S##\_L001_R1/R2.fastq.gz
+
+I'd like to add a R1 column and a R2 column and put the filepaths to the
+forward and reverse reads into the metadata dataframe. This is the
+format that we will need for the NCBI submission.
+
+```{r fastqlookup}
+
+fastq_lookup <- tibble(
+  filepath = list.files(
+    "../fastq_files",
+    pattern = "\\.fastq\\.gz$",
+    full.names = TRUE
+  )
+) |>
+  mutate(
+    filename = basename(filepath),
+    `sample-id` = str_extract(filename, "^[^_]+"),
+    read = str_extract(filename, "(?<=_)R[12](?=_)"),
+    
+    # checksum path needed temporarily to read the file
+    checksum_path = paste0(filepath, ".md5"),
+    
+    # checksum filename
+    checksum_filename = basename(checksum_path),
+    
+    # checksum value
+    checksum = map_chr(
+      checksum_path,
+      \(x) readLines(x, n = 1) |>
+        str_extract("^[[:xdigit:]]+")
+    )
+  ) |>
+  select(
+    `sample-id`,
+    read,
+    filename,
+    checksum_filename,
+    checksum
+  ) |>
+  pivot_wider(
+    id_cols = `sample-id`,
+    names_from = read,
+    values_from = c(filename, checksum_filename, checksum),
+    names_glue = "{read}_{.value}"
+  )
+```
+
+Now we have `fastq_lookup` which has the sample-id, the fastq filenames
+to the R1 and the R2 `.fastq.gz` files, ad the names of the md5 checksum
+files and the checksum values for each R1 and R2 file.
+
+# Join fastq_lookup to metadata
+
+We can join these filepaths to the metadata and look for which sample-id
+is lacking fastq files!
+
+```{r metadatajoin}
+metadata <- metadata |>
+  left_join(fastq_lookup, by = "sample-id")
+
+metadata |>
+  filter(is.na(R1) | is.na(R2))
+```
+
+::: callout-note
+OK so sample `8-25-sc-ng3` is missing fastq.gz files. If we can't locate
+the fastq files for this sample we will exclude this sample from the
+analysis.
+:::

@@ -1,0 +1,2 @@
+"0","metadatajoin <- metadata |> "
+"0","  left_join(fieldsummary, by = join_by(site, seagrass, dist_from_shore, closest(x$date <= y$ent_date)))"

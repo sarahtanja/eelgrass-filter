@@ -1,0 +1,24 @@
+{
+    "id": "F7C669AC",
+    "path": "~/GitHub/eelgrass-filter/Bioinformatics - assign taxonomoy.R",
+    "project_path": "Bioinformatics - assign taxonomoy.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1787258356594.0,
+    "source_on_save": false,
+    "relative_order": 6,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1787165959,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1787165959,
+    "read_only": false,
+    "read_only_alternatives": []
+}
