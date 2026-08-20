@@ -1,7 +1,0 @@
-"0","knitr::opts_chunk$set("
-"0","  echo = TRUE, # Display code chunks"
-"0","  eval = TRUE, # Evaluate code chunks"
-"0","  warning = FALSE, # Hide warnings"
-"0","  message = FALSE, # Hide messages"
-"0","  comment = """" # Prevents appending '##' to beginning of lines in code output"
-"0",")        "
