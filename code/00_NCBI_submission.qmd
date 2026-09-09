@@ -26,7 +26,7 @@ knitr::opts_chunk$set(
 library(tidyverse)
 ```
 
-# Background
+# 1 Study Background
 
 CK collected surface water samples via kayak from three sites across
 Puget Sound, Golden Gardens, Smith's Cove, and Alki Beach. At each site,
@@ -35,34 +35,39 @@ eelgrass (Zostera marina), and a 100m transect of non-eelgrass habitat.
 The aim of this analyses is to compare bacterial community of the
 seawater over eelgrass with non-eelgrass samples.
 
-# NCBI Submission
+# 2 NCBI Submission
 
 ### Sequence Read Archive submission SUB16423997
 
-#### Submission title: 
+#### Submission title:
 
 > Seasonal changes in pathogenic bacteria around eelgrass (Zostera
 > marina) meadows in Puget Sound, Aug 20 \`26
 
-#### Sample Type: 
+#### Sample Type:
 
 > MIMARKS Survey related, water - Use for any type of marker gene
 > sequences, eg, 16S, obtained directly fromt he environment, without
 > culturing or identification of the organisms.
 
-### BioSample Attributes for package MIMARKS: survey, water, version 6.0
+# 3 Required attributes 
 
-Required attributes (aka metadata columns)
+These are the metadata columns that are required for NCBI submission!
+For this study we follow the BioSample Attributes for
+`package MIMARKS: survey, water, version 6.0` . The selection is marked
+by a bullet point, and instructions or details are in a block quote.
 
 #### sample_name
+
+- 
 
 #### organism
 
 - seawater metagenome
 
-(see [Organism
-information](https://www.ncbi.nlm.nih.gov/biosample/docs/organism/#:~:text=2%20ABC%2D2021-,Metagenomes%20(Microbiomes),-We%20consider%20any)
-for why we chose this)
+> (see [Organism
+> information](https://www.ncbi.nlm.nih.gov/biosample/docs/organism/#:~:text=2%20ABC%2D2021-,Metagenomes%20(Microbiomes),-We%20consider%20any)
+> for why we chose this)
 
 #### collection_date
 
@@ -129,19 +134,22 @@ for why we chose this)
 
 #### depth
 
-- Depth is defined as the vertical distance below surface, e.g. for
-  sediment or soil samples depth is measured from sediment or soil
-  surface, respectivly. Depth can be reported as an interval for
-  subsurface samples.
+- All of these samples were taken at the surface and therefore depth
+  will be 0 for all
 
-# Metadata
+> Depth is defined as the vertical distance below surface, e.g. for
+> sediment or soil samples depth is measured from sediment or soil
+> surface, respectivly. Depth can be reported as an interval for
+> subsurface samples.
 
-Let's checkout the metadata
+# 4 Wrangle metadata
+
+Let's checkout the metadata!
 
 - slice(-1) removes the first data row after the headers, which in the
   `Metadata_cak.tsv` file was descriptions of the column data types.
 
-```{r metadata}
+```{r metadatapeek}
 metadata <- read_tsv("../metadata/Metadata_cak.tsv") |> 
   slice(-1)
 
@@ -182,17 +190,18 @@ Q: The sample-id indicates the winter samples were collected December
 2020... were the Summer samples collected earlier that same year in
 August 2020, or later in August 2021?
 
-A: Summer samples were collected in Aug 2020!
+A: All samples were collected in the year 2020!
 :::
 
 We have 60 water samples across 3 sites (`golden_gardens`, `alki`,
-`smiths_cove`) that were collected either in Winter (12 / December) or
-in Summer (8 / August), over eelgrass habitat (`grass`) or over sediment
-habitat (`none`), at 1, 20, 40, 60, and 80 meters from shore along a
+`smiths_cove`) that were collected either in Winter (12 / December on
+12/16, 12/18, and 12/22 ) or in Summer (8 / August on 8/25 and 8/21),
+over eelgrass habitat transects (`grass`) or over sediment habitat
+transects (`none`), at 1, 20, 40, 60, and 80 meters from shore along a
 100m transect.
 
 ```{r metadatacount}
-metadata |> count(site, month, seagrass, dist_from_shore)
+metadata |> count(site, month_no, seagrass, dist_from_shore)
 ```
 
 We don't have any repeat samples across all of our metadata columns, the
@@ -200,7 +209,7 @@ distance from shore column could be collapsed and interpreted as our
 repeated sampling.
 
 ```{r metadatacount2}
-metadata |> count(site, month, seagrass)
+metadata |> count(site, month_no, seagrass)
 ```
 
 When we group all the samples from the same day and place (and collapse
@@ -225,7 +234,7 @@ class(fielddata$ent_date)
 unique(fielddata$ent_date)
 ```
 
-```{r fielclean}
+```{r fieldclean}
 
 # caution original fielddata spells it Novermber
 
@@ -274,23 +283,38 @@ The enterococcus water samples were collected in triplicate, as were
 their metadata, so we have to average that metadata to get 1 row of
 information for each eDNA water sample.
 
-```{r}
-fieldtriplicates <- fieldclean |> 
+Here we average the triplicate sample metadata, and create a new
+dataframe named `fieldavg`
+
+```{r fieldaverages}
+fieldavg <- fieldclean |> 
   group_by(ent_date, site, seagrass, dist_from_shore) |> 
   summarize(
     n = n()
-  ) |> 
-  filter(n != 3)
+  ) 
 
-fieldtriplicates
+fieldavg
+```
+
+`fieldavg` should have an average metadata row for each sampling
+location (
+
+- The `fieldavg$n` column should always be 3... indicated three samples
+  from the same location were averaged
+
+- Let's check that by filtering for any that are not 3...
+
+```{r}
+fieldavg |> 
+  filter(n != 3)
 ```
 
 ::: callout-note
 OK... 24 of our samples don't group into the triplicate sample
 structure... They're all in the dist_from_shore 1 sampling location...
-And it looks like there is a sample labelled grass that should have been
-none. It seems like transect D should always be a no seagrass or "none"
-coded row. Let's fix that...
+And it looks like there is a sample labelled `grass` that should have
+been `none`. It seems like transect D should always be a no seagrass or
+`none` coded row. Let's fix that...
 :::
 
 ```{r}
@@ -323,33 +347,47 @@ fieldsummary <- fieldcleangrass |>
     avg_ent  = mean(ent_count, na.rm = TRUE),
     .groups = "drop"
   )
+
+fieldsummary |> filter(ent_date == c("2020-12-16", "2020-12-18", "2020-12-22", "2020-12-21", "2020-08-25", "2020-08-21"))
+                       
 ```
 
+There should be a total of 12 summary rows (3 sites x 2 seasons x 2
+transects)
+
 ::: callout-note
-The sample collection date from the enterococcus metadata for December
-golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
+- The sample collection date from the enterococcus metadata for December
+  golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
+
+  Q: Is this a typo or were samples collected on separate days?
 :::
 
-```{r}
+```{r metadatajoin}
 metadatajoin <- metadata |> 
-  left_join(fieldsummary, by = join_by(site, seagrass, dist_from_shore, closest(x$date <= y$ent_date)))
+  left_join(fieldsummary, by = join_by(site, seagrass, dist_from_shore, closest(x$date <= y$ent_date))) |> 
+  select(!ent_date)
 ```
 
-::: callout-note
+# 5 Join metadata and required NCBI attributes
+
 We need to add the required NCBI attributes to our metadata file.
-:::
 
 ```{r addNCBIattributes}
-metadata <- metadata |> 
+ncbi-metadata <- metadatajoin |> 
   mutate(
     sample_name = sample-id, 
-    organism = water metagenome,
-    collection_date = 
-    
+    organism = `water metagenome`,
+    collection_date = date,
+    env_broad_scale = ``,
+    env_local_scale = ``,
+    env_medium = ``,
+    geo_loc_name = ``,
+    lat_lon = ``,
+    depth = 0
   )
 ```
 
-# Inspect fastq.gz files
+# 6 Inspect fastq.gz files
 
 ```{r fastqlist, engine='bash'}
 ls ../fastq_files
