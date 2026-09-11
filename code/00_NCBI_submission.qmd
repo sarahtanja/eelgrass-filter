@@ -48,26 +48,41 @@ eelgrass-associated transects. This study was conducted by CK in 2020.
 > Seasonal changes in pathogenic bacteria around eelgrass (Zostera
 > marina) meadows in Puget Sound, Aug 20 \`26
 
-#### Sample Type:
+#### Sample type:
 
 > MIMARKS Survey related, water - Use for any type of marker gene
 > sequences, eg, 16S, obtained directly fromt he environment, without
 > culturing or identification of the organisms.
 
+<<<<<<< HEAD
 # 3 Biosample required attributes
+=======
+# 3 Required attributes
+>>>>>>> 57eca64 (metadata clean)
 
 These are the metadata columns that are required for NCBI submission!
 For this study we follow the BioSample Attributes for
-`package MIMARKS: survey, water, version 6.0` . The selection is marked
-by a bullet point, and instructions or details are in a block quote.
+`package MIMARKS: survey, water, version 6.0` .
 
 #### sample_name
 
-- 
+- Our sample names follow the format `mm-dd-YY-[gg/alki/sc]-[g/ng][1-5]`
+  , where:
+
+  - mm-dd-YY are the sample collection dates
+
+  - gg = Golden Gardens, alki = Alki Beach, sc = Smith's Cove
+
+  - g = grass, ng = no grass
+
+  - 1 = 1m from shore, 2 = 20m from shore, 3 = 40m from shore, 4 = 60m
+    from shore, 5 = 80m from shore
 
 #### organism
 
 - seawater metagenome
+  - These samples were seawater eDNA samples, using the 16S rRNA marker
+    gene for bacterial identification
 
 > (see [Organism
 > information](https://www.ncbi.nlm.nih.gov/biosample/docs/organism/#:~:text=2%20ABC%2D2021-,Metagenomes%20(Microbiomes),-We%20consider%20any)
@@ -210,7 +225,7 @@ metadata |> count(site, month_no, seagrass, dist_from_shore)
 
 We don't have any repeat samples across all of our metadata columns, the
 distance from shore column could be collapsed and interpreted as our
-repeated sampling.
+repeated sampling per site, transect, and date.
 
 ```{r metadatacount2}
 metadata |> count(site, month_no, seagrass)
@@ -219,47 +234,35 @@ metadata |> count(site, month_no, seagrass)
 When we group all the samples from the same day and place (and collapse
 the dist-from_shore column ), we have a sample size of 5.
 
+The following fielddata are environmental conditions recorded during
+sampling for Enterococcus that coincided with sampling for eDNA. The
+Enterococcus samples were taken in triplicate, while the eDNA samples
+were single samples.
+
+The Enterococcus samples were also taken in February, March, June, July,
+August, October, November, December of 2020 and in January of 2021 -
+while the eDNA samples we have are only from August and December 2020.
+
 ```{r fieldinspect}
 fielddata <- read_csv("../metadata/FieldAssayCounts.csv")
 
-glimpse(fielddata)
-unique(fielddata$site)
-unique(fielddata$month)
-unique(fielddata$grass.nograss)
-unique(fielddata$Date)
-class(fielddata$Date)
-
-# make Date a as.date
+# Filter ton metadata only from Aug and Dec and format as.date
 fielddata <- fielddata |> 
+  filter(month == c("August", "December")) |> 
   mutate(
     ent_date = as.Date(Date, format = "%m/%d/%Y")
   )
-class(fielddata$ent_date)
+
+unique(fielddata$month)
 unique(fielddata$ent_date)
 ```
 
 ```{r fieldclean}
 
-# caution original fielddata spells it Novermber
-
 fieldclean <- fielddata |> 
   mutate(
-    month = case_when(
-      month == "Novermber" ~ "November",
-      TRUE ~ month
-    ),
     month_no = case_when(
-      month == "January" ~ 1,
-      month == "February" ~ 2,
-      month == "March" ~ 3,
-      month == "April" ~ 4,
-      month == "May" ~ 5, 
-      month == "June" ~ 6,
-      month == "July" ~ 7,
       month == "August" ~ 8,
-      month == "September" ~ 9, 
-      month == "October" ~ 10,
-      month == "November" ~ 11,
       month == "December" ~ 12, 
       TRUE ~ NA_real_
     ), 
@@ -278,7 +281,8 @@ fieldclean <- fielddata |>
     ) |> 
   select(ent_date, month, month_no, site, transect, seagrass, dist_from_shore, temp, ph, sal, par, do, ent_count
     )
-  
+
+fieldclean  
 ```
 
 The field assay counts are data from the enterococcus water samples that
@@ -287,62 +291,11 @@ The enterococcus water samples were collected in triplicate, as were
 their metadata, so we have to average that metadata to get 1 row of
 information for each eDNA water sample.
 
-Here we average the triplicate sample metadata, and create a new
-dataframe named `fieldavg`
-
 ```{r fieldaverages}
 fieldavg <- fieldclean |> 
   group_by(ent_date, site, seagrass, dist_from_shore) |> 
   summarize(
-    n = n()
-  ) 
-
-fieldavg
-```
-
-`fieldavg` should have an average metadata row for each sampling
-location (
-
-- The `fieldavg$n` column should always be 3... indicated three samples
-  from the same location were averaged
-
-- Let's check that by filtering for any that are not 3...
-
-```{r}
-fieldavg |> 
-  filter(n != 3)
-```
-
-::: callout-note
-OK... 24 of our samples don't group into the triplicate sample
-structure... They're all in the dist_from_shore 1 sampling location...
-And it looks like there is a sample labelled `grass` that should have
-been `none`. It seems like transect D should always be a no seagrass or
-`none` coded row. Let's fix that...
-:::
-
-```{r}
-fieldcleangrass <- fieldclean |>
-  mutate(
-    seagrass = case_when(
-      transect == "D" ~ "none",
-      TRUE ~ seagrass
-    )
-  )
-
-# should return 0 rows
-fieldcleangrass |> 
-  group_by(ent_date, site, seagrass, dist_from_shore) |> 
-  summarize(
-    n = n()
-  ) |> 
-  filter(n != 3)
-```
-
-```{r}
-fieldsummary <- fieldcleangrass |> 
-  group_by(ent_date, site, seagrass, dist_from_shore) |> 
-  summarize(
+    n        = n(), # counts the input rows, should be 3
     avg_temp = mean(temp, na.rm = TRUE),
     avg_ph   = mean(ph, na.rm = TRUE),
     avg_sal  = mean(sal, na.rm = TRUE),
@@ -352,18 +305,86 @@ fieldsummary <- fieldcleangrass |>
     .groups = "drop"
   )
 
-fieldsummary |> filter(ent_date == c("2020-12-16", "2020-12-18", "2020-12-22", "2020-12-21", "2020-08-25", "2020-08-21"))
-                       
+fieldavg
 ```
 
-There should be a total of 12 summary rows (3 sites x 2 seasons x 2
-transects)
+`fieldavg` should have an average metadata row for each sampling
+location (site x seagrass x dist_from_shore)
+
+- The `fieldavg$n` column should always be 3... indicating that three
+  samples from the same location were averaged
+
+- I notice some of them are 4 or 2 instead...
+
+- Let's check that by filtering for any that are not 3...
+
+```{r}
+fieldavg |> 
+  filter(n != 3)
+```
 
 ::: callout-note
-- The sample collection date from the enterococcus metadata for December
-  golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
+OK... 6 of our samples don't group into the triplicate sample
+structure... They're all in the dist_from_shore 1 sampling location...
+And it looks like there is a sample labelled `grass` that should have
+been `none`... because the grass category has an n of 4 while the none
+category has an n of 2. Let's explore that...
+:::
 
-  Q: Is this a typo or were samples collected on separate days?
+When I look at `fielddata` I found that Transects A, B, C should all be
+over seagrass, while transects D, E, F should all be over sediment. It
+seems like the first entry of Transect D is mislabelled with a 1,
+indicating a seagrass sample. It should be a 0. Let's fix it:
+
+```{r}
+fieldclean <- fieldclean |>
+  mutate(
+    seagrass = case_when(
+      transect == "D" ~ "none",
+      TRUE ~ seagrass
+    )
+  )
+```
+
+Now let's re-run the averaging step and search for any n that are not 3
+
+```{r}
+fieldavg <- fieldclean |> 
+  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  summarize(
+    n        = n(), # counts the input rows, should be 3
+    avg_temp = mean(temp, na.rm = TRUE),
+    avg_ph   = mean(ph, na.rm = TRUE),
+    avg_sal  = mean(sal, na.rm = TRUE),
+    avg_par  = mean(par, na.rm = TRUE),
+    avg_do   = mean(do, na.rm = TRUE),
+    avg_ent  = mean(ent_count, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+fieldavg |> filter(n !=3)
+fieldavg
+```
+
+::: callout-important
+Ok, that appears to have fixed it! IMPORTANT NOTE, this should be fixed
+for the Enterococcus linear models as well if that metadata is the same
+in the other analysis...
+:::
+
+::: callout-warning
+The `fieldavg` dataframe only has 36 rows... and I expected 60 (one for
+each eDNA sample) ... I can see that the issue is dist_from_shore in
+`fieldavg` only records 1, 40, 80 in Aug and 20, 60, 100 in December ,
+meanwhile `metadata` for our eDNA samples have 1, 20, 60, 80 for each
+transect.
+:::
+
+The sample collection date from the enterococcus metadata for December
+golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
+
+::: callout-note
+- Q: Is this a typo or were samples collected on separate days?
 :::
 
 ```{r metadatajoin}
