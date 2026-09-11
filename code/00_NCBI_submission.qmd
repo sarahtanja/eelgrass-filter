@@ -28,12 +28,16 @@ library(tidyverse)
 
 # 1 Study Background
 
-CK collected surface water samples via kayak from three sites across
-Puget Sound, Golden Gardens, Smith's Cove, and Alki Beach. At each site,
-surface water samples were collected over both a 100m transect of
-eelgrass (Zostera marina), and a 100m transect of non-eelgrass habitat.
+Corinne Klohmann (CK) collected surface eDNA water samples via kayak
+from three sites across Puget Sound: Golden Gardens, Smith's Cove, and
+Alki Beach. At each site, surface water samples were collected over both
+a 100m transect of eelgrass (Zostera marina), and a 100m transect of
+non-eelgrass habitat at 1, 20, 40, 60, 80, and 100m along each transect.
 The aim of this analyses is to compare bacterial community of the
-seawater over eelgrass with non-eelgrass samples.
+seawater over eelgrass with non-eelgrass samples. The hypothesis is that
+eelgrass will filter out pathogenic bacteria from the water column, and
+that we will detect less pathogenic bacteria in samples taken from the
+eelgrass-associated transects. This study was conducted by CK in 2020.
 
 # 2 NCBI Submission
 
@@ -50,7 +54,7 @@ seawater over eelgrass with non-eelgrass samples.
 > sequences, eg, 16S, obtained directly fromt he environment, without
 > culturing or identification of the organisms.
 
-# 3 Required attributes 
+# 3 Biosample required attributes
 
 These are the metadata columns that are required for NCBI submission!
 For this study we follow the BioSample Attributes for
@@ -368,26 +372,7 @@ metadatajoin <- metadata |>
   select(!ent_date)
 ```
 
-# 5 Join metadata and required NCBI attributes
-
-We need to add the required NCBI attributes to our metadata file.
-
-```{r addNCBIattributes}
-ncbi-metadata <- metadatajoin |> 
-  mutate(
-    sample_name = sample-id, 
-    organism = `water metagenome`,
-    collection_date = date,
-    env_broad_scale = ``,
-    env_local_scale = ``,
-    env_medium = ``,
-    geo_loc_name = ``,
-    lat_lon = ``,
-    depth = 0
-  )
-```
-
-# 6 Inspect fastq.gz files
+# 5 Inspect fastq.gz files
 
 ```{r fastqlist, engine='bash'}
 ls ../fastq_files
@@ -406,7 +391,7 @@ sample.
 
 So we have fastq files for 59 out of the 60 samples...
 
-# Checksums
+# 6 Generate checksums
 
 Generate md5 for each fastq.gz and save it in the data directory
 
@@ -473,6 +458,25 @@ Now we have `fastq_lookup` which has the sample-id, the fastq filenames
 to the R1 and the R2 `.fastq.gz` files, ad the names of the md5 checksum
 files and the checksum values for each R1 and R2 file.
 
+# 7 Join metadata
+
+We need to add the required NCBI attributes to our metadata file.
+
+```{r addNCBIattributes}
+ncbi-metadata <- metadatajoin |> 
+  mutate(
+    sample_name = sample-id, 
+    organism = `water metagenome`,
+    collection_date = date,
+    env_broad_scale = ``,
+    env_local_scale = ``,
+    env_medium = ``,
+    geo_loc_name = ``,
+    lat_lon = ``,
+    depth = 0
+  )
+```
+
 # Join fastq_lookup to metadata
 
 We can join these filepaths to the metadata and look for which sample-id
@@ -491,3 +495,5 @@ OK so sample `8-25-sc-ng3` is missing fastq.gz files. If we can't locate
 the fastq files for this sample we will exclude this sample from the
 analysis.
 :::
+
+# 8 FTP File Upload
