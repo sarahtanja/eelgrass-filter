@@ -237,6 +237,13 @@ metadata |> count(site, month_no, seagrass)
 When we group all the samples from the same day and place (and collapse
 the dist-from_shore column ), we have a sample size of 5.
 
+## Join metadata to biosample required attributes
+
+```{r bioattributes}
+metadata <- metadata |> 
+  
+```
+
 ## Join metadata to environmental covariates
 
 The following `fielddata` are environmental conditions (covariates)
@@ -244,9 +251,10 @@ recorded during sampling for Enterococcus that coincided with sampling
 for eDNA. The Enterococcus samples were taken in triplicate, while the
 eDNA samples were single samples.
 
-The Enterococcus samples were also taken in February, March, June, July,
-August, October, November, December of 2020 and in January of 2021 -
-while the eDNA samples we have are only from August and December 2020.
+The *Enterococcus* samples were also taken in February, March, June,
+July, August, October, November, December of 2020 and in January of
+2021 - while the eDNA samples we have are only from August and December
+2020.
 
 ```{r fieldinspect}
 fielddata <- read_csv("../input/metadata/FieldAssayCounts.csv")
@@ -298,7 +306,7 @@ of information for each eDNA water sample.
 
 ```{r fieldavg}
 fieldavg <- fieldclean |> 
-  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  group_by(date, site, seagrass, dist_from_shore) |> 
   summarize(
     n        = n(), # counts the input rows, should be 3
     avg_temp = mean(temp, na.rm = TRUE),
@@ -355,7 +363,7 @@ Now let's re-run the averaging step and search for any n that are not 3
 
 ```{r}
 fieldavg <- fieldclean |> 
-  group_by(ent_date, site, seagrass, dist_from_shore) |> 
+  group_by(date, site, seagrass, dist_from_shore) |> 
   summarize(
     n        = n(), # counts the input rows, should be 3
     avg_temp = mean(temp, na.rm = TRUE),
@@ -405,9 +413,90 @@ fieldavg <- fieldavg |>
   )
 ```
 
+OK - we need to fill in some data gaps... Can we use predicted
+environmental covariates?
+
+Let's graph our environmental data against dist_from_shore
+
+```{r}
+fieldavg_long <- fieldavg |>
+  tidyr::pivot_longer(
+    cols = c(avg_temp, avg_ph, avg_sal, avg_par, avg_do, avg_ent),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+ggplot(
+  fieldavg_long,
+  aes(x = dist_from_shore, y = value)
+) +
+  geom_point() +
+  geom_smooth(
+    method = "lm",
+    se = FALSE
+  ) +
+  facet_grid(
+    variable ~ site + date + seagrass,
+    scales = "free_y"
+  ) +
+  labs(
+    x = "Distance from shore",
+    y = NULL
+  ) +
+  theme_bw()
+```
+
+Let's make a prediction grid of our environmental data across all
+dist_from_shore sampling spots (1, 20, 40, 60, 80, and 100 m from shore)
+
+```{r}
+prediction_grid <- fieldavg |>
+  dplyr::group_by(site, date, seagrass) |>
+  dplyr::group_modify(\(data, key) {
+    
+    newdata <- tibble::tibble(
+      dist_from_shore = c(1, 20, 40, 60, 80, 100)
+    )
+    
+    newdata |>
+      dplyr::mutate(
+        temp = predict(
+          lm(avg_temp ~ dist_from_shore, data = data),
+          newdata = newdata
+        ),
+        ph = predict(
+          lm(avg_ph ~ dist_from_shore, data = data),
+          newdata = newdata
+        ),
+        sal = predict(
+          lm(avg_sal ~ dist_from_shore, data = data),
+          newdata = newdata
+        ),
+        par = predict(
+          lm(avg_par ~ dist_from_shore, data = data),
+          newdata = newdata
+        ),
+        do = predict(
+          lm(avg_do ~ dist_from_shore, data = data),
+          newdata = newdata
+        ),
+        ent = predict(
+          glm(
+            avg_ent ~ dist_from_shore,
+            data = data,
+            family = poisson(link = "log")
+          ),
+          newdata = newdata,
+          type = "response"
+        )
+      )
+  }) |>
+  dplyr::ungroup()
+```
+
 ```{r metadatajoin}
 metadatajoin <- metadata |> 
-  left_join(fieldavg, by = join_by(site, seagrass, dist_from_shore, date)
+  left_join(prediction_grid, by = join_by(site, date, seagrass, dist_from_shore))
 ```
 
 # 5 Inspect fastq.gz files
