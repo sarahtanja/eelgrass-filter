@@ -159,13 +159,18 @@ For this study we follow the BioSample Attributes for
 
 # 4 Wrangle metadata
 
-Let's checkout the metadata!
+> The goal here is to get all the required NCBI biosample attributes
+> identified above correctly aligned to other pertinent metadata for the
+> project sample structure (ex. eelgrass vs. sediment sampling
+> association)
+
+Now let's checkout the metadata!
 
 - slice(-1) removes the first data row after the headers, which in the
   `Metadata_cak.tsv` file was descriptions of the column data types.
 
-```{r metadatapeek}
-metadata <- read_tsv("../metadata/Metadata_cak.tsv") |> 
+```{r metadata}
+metadata <- read_tsv("../input/metadata/Metadata_cak.tsv") |> 
   slice(-1)
 
 # make dist from shore a double not a character
@@ -183,8 +188,10 @@ metadata <- metadata |>
 metadata <- metadata |> 
   rename(month_no = month)
 
-knitr::kable(metadata, format="pipe")
+metadata
 ```
+
+We have 60 samples!
 
 Our metadata file has 6 columns:
 
@@ -230,27 +237,29 @@ metadata |> count(site, month_no, seagrass)
 When we group all the samples from the same day and place (and collapse
 the dist-from_shore column ), we have a sample size of 5.
 
-The following fielddata are environmental conditions recorded during
-sampling for Enterococcus that coincided with sampling for eDNA. The
-Enterococcus samples were taken in triplicate, while the eDNA samples
-were single samples.
+## Join metadata to environmental covariates
+
+The following `fielddata` are environmental conditions (covariates)
+recorded during sampling for Enterococcus that coincided with sampling
+for eDNA. The Enterococcus samples were taken in triplicate, while the
+eDNA samples were single samples.
 
 The Enterococcus samples were also taken in February, March, June, July,
 August, October, November, December of 2020 and in January of 2021 -
 while the eDNA samples we have are only from August and December 2020.
 
 ```{r fieldinspect}
-fielddata <- read_csv("../metadata/FieldAssayCounts.csv")
+fielddata <- read_csv("../input/metadata/FieldAssayCounts.csv")
 
 # Filter metadata only from Aug and Dec and format as.date
 fielddata <- fielddata |> 
   filter(month == c("August", "December")) |> 
   mutate(
-    ent_date = as.Date(Date, format = "%m/%d/%Y")
+    date = as.Date(Date, format = "%m/%d/%Y")
   )
 
 unique(fielddata$month)
-unique(fielddata$ent_date)
+unique(fielddata$date)
 ```
 
 ```{r fieldclean}
@@ -275,19 +284,19 @@ fieldclean <- fielddata |>
   rename(
       dist_from_shore = dist.from.shore
     ) |> 
-  select(ent_date, month, month_no, site, transect, seagrass, dist_from_shore, temp, ph, sal, par, do, ent_count
+  select(date, month, month_no, site, transect, seagrass, dist_from_shore, temp, ph, sal, par, do, ent_count
     )
 
 fieldclean  
 ```
 
-The field assay counts are data from the enterococcus water samples that
-were collected in the same location and time as the eDNA water samples.
-The enterococcus water samples were collected in triplicate, as were
-their metadata, so we have to average that metadata to get 1 row of
-information for each eDNA water sample.
+The field assay counts are data from the *Enterococcus* water samples
+that were collected in the same location and time as the eDNA water
+samples. The *Enterococcus* water samples were collected in triplicate,
+as were their metadata, so we have to average that metadata to get 1 row
+of information for each eDNA water sample.
 
-```{r fieldaverages}
+```{r fieldavg}
 fieldavg <- fieldclean |> 
   group_by(ent_date, site, seagrass, dist_from_shore) |> 
   summarize(
@@ -376,30 +385,42 @@ meanwhile `metadata` for our eDNA samples have 1, 20, 60, 80 for each
 transect.
 :::
 
-The sample collection date from the enterococcus metadata for December
+The sample collection date from the *Enterococcus* metadata for December
 golden gardens is the 21st, but it's the 22nd in the eDNA metadata...
 
 ::: callout-note
 - Q: Is this a typo or were samples collected on separate days?
 :::
 
+Let's mutate it to match the recorded `2020-12-22` date for the eDNA
+samples.
+
+```{r mutatedate}
+fieldavg <- fieldavg |> 
+  mutate(
+    date = case_when(
+      date == as.Date("2020-12-21") ~ as.Date("2020-12-22"),
+      TRUE ~ date
+    )
+  )
+```
+
 ```{r metadatajoin}
 metadatajoin <- metadata |> 
-  left_join(fieldsummary, by = join_by(site, seagrass, dist_from_shore, closest(x$date <= y$ent_date))) |> 
-  select(!ent_date)
+  left_join(fieldavg, by = join_by(site, seagrass, dist_from_shore, date)
 ```
 
 # 5 Inspect fastq.gz files
 
 ```{r fastqlist, engine='bash'}
-ls ../fastq_files
+ls ../input/fastq/
 ```
 
 ```{r fastqcount, engine='bash'}
-ls -1 ../fastq_files/*fastq.gz* | wc -l
+ls -1 ../input/fastq/*fastq.gz | wc -l
 ```
 
-We have 118 fastq.gz files... There should be a R1 and an R2 for each
+We have 118 fastq.gz files... There should be an R1 and an R2 for each
 sample.
 
 ```{r div2}
@@ -414,18 +435,18 @@ Generate md5 for each fastq.gz and save it in the data directory
 
 ```{r md5sum, engine='bash'}
 
-for file in ../fastq_files/*.fastq.gz; do
+for file in ../input/fastq/*.fastq.gz; do
     md5sum "$file" > "${file}.md5"
 done
 ```
 
-We need to match our filenames with our metadata.
+We need to match our fastq.gz filenames with the `metadata$sample-id`.
 
 Each filename follows the pattern `sample-id_S##_L001_R1/2.fastq.gz` and
-in metadata the sample-id coumn should match the sample-id prior to the
-\_S##\_L001_R1/R2.fastq.gz
+in `metadata` the `sample-id` column should match the `sample-id` prior
+to the `_S##_L001_R1/R2.fastq.gz`
 
-I'd like to add a R1 column and a R2 column and put the filepaths to the
+Lets add an R1 column and a R2 column and put the filepaths to the
 forward and reverse reads into the metadata dataframe. This is the
 format that we will need for the NCBI submission.
 
@@ -433,7 +454,7 @@ format that we will need for the NCBI submission.
 
 fastq_lookup <- tibble(
   filepath = list.files(
-    "../fastq_files",
+    "..input/fastq",
     pattern = "\\.fastq\\.gz$",
     full.names = TRUE
   )
