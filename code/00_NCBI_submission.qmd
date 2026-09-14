@@ -54,11 +54,7 @@ eelgrass-associated transects. This study was conducted by CK in 2020.
 > sequences, eg, 16S, obtained directly fromt he environment, without
 > culturing or identification of the organisms.
 
-<<<<<<< HEAD
 # 3 Biosample required attributes
-=======
-# 3 Required attributes
->>>>>>> 57eca64 (metadata clean)
 
 These are the metadata columns that are required for NCBI submission!
 For this study we follow the BioSample Attributes for
@@ -246,7 +242,7 @@ while the eDNA samples we have are only from August and December 2020.
 ```{r fieldinspect}
 fielddata <- read_csv("../metadata/FieldAssayCounts.csv")
 
-# Filter ton metadata only from Aug and Dec and format as.date
+# Filter metadata only from Aug and Dec and format as.date
 fielddata <- fielddata |> 
   filter(month == c("August", "December")) |> 
   mutate(
